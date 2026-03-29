@@ -1,0 +1,8 @@
+name = "cloudflare-outlook-calendar-worker"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Default timezone applied when none is provided in the request
+DEFAULT_TZ = "Europe/Berlin"

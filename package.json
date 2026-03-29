@@ -1,0 +1,19 @@
+{
+  "name": "cloudflare-outlook-calendar-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker that acts as an iCal proxy and timezone normalization service for Outlook calendar feeds",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241022.0",
+    "typescript": "^5.5.2",
+    "vitest": "^2.0.5",
+    "wrangler": "^3.68.0"
+  }
+}
