@@ -122,18 +122,55 @@ async function handleCalendar(request: Request, env: Env): Promise<Response> {
   // ── Fetch the upstream ICS ───────────────────────────────────────────────
   let upstreamResponse: Response;
   try {
-    upstreamResponse = await fetch(sourceUrl.toString(), {
-      headers: {
-        // Identify ourselves; some servers require a User-Agent
-        "User-Agent": "CloudflareOutlookCalendarWorker/1.0",
-        Accept: "text/calendar, */*",
-      },
-      // CF-specific: don't cache the upstream to ensure freshness
-      cf: {
-        cacheTtl: 0,
-        cacheEverything: false,
-      } as RequestInitCfProperties,
-    });
+    // Follow redirects manually so each target can be re-validated to avoid SSRF.
+    const maxRedirects = 5;
+    let currentUrl = sourceUrl;
+
+    for (let i = 0; i <= maxRedirects; i++) {
+      upstreamResponse = await fetch(currentUrl.toString(), {
+        headers: {
+          // Identify ourselves; some servers require a User-Agent
+          "User-Agent": "CloudflareOutlookCalendarWorker/1.0",
+          Accept: "text/calendar, */*",
+        },
+        // CF-specific: don't cache the upstream to ensure freshness
+        cf: {
+          cacheTtl: 0,
+          cacheEverything: false,
+        } as RequestInitCfProperties,
+        redirect: "manual",
+      });
+
+      // If not a redirect (3xx with Location), use this response as-is.
+      if (upstreamResponse.status < 300 || upstreamResponse.status >= 400) {
+        break;
+      }
+
+      const location = upstreamResponse.headers.get("Location");
+      if (!location) {
+        break;
+      }
+
+      let nextUrl: URL;
+      try {
+        nextUrl = new URL(location, currentUrl);
+      } catch {
+        return errorResponse(502, "Upstream server returned an invalid redirect URL");
+      }
+
+      // Re-validate each redirect target to maintain SSRF protections.
+      try {
+        validateSourceUrl(nextUrl.toString());
+      } catch (err) {
+        return errorResponse(400, String(err instanceof Error ? err.message : err));
+      }
+
+      currentUrl = nextUrl;
+
+      if (i === maxRedirects) {
+        return errorResponse(502, "Too many redirects from upstream server");
+      }
+    }
   } catch (err) {
     return errorResponse(502, `Failed to fetch upstream calendar: ${err instanceof Error ? err.message : String(err)}`);
   }
