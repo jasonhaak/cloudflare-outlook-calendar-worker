@@ -428,12 +428,14 @@ function injectVTimezone(lines: string[], tzid: string): string[] {
  */
 export function transformIcs(icsText: string, opts: TransformOptions): string {
   if (opts.mode === "passthrough") {
-    // Preserve as-is; just normalise line endings
-    return icsText
+    // Preserve as-is; just normalise line endings and ensure trailing CRLF
+    const normalised = icsText
       .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n")
-      .split("\n")
-      .join("\r\n");
+      .replace(/\r/g, "\n");
+    const lines = normalised.endsWith("\n")
+      ? normalised.slice(0, -1).split("\n")
+      : normalised.split("\n");
+    return lines.join("\r\n") + "\r\n";
   }
 
   const unfolded = unfoldLines(icsText);
