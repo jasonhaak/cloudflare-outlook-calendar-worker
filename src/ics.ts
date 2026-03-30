@@ -304,8 +304,9 @@ function transformDateProp(
 ): ParsedProp {
   const { tzid, offsetMinutes, mode } = opts;
 
-  // All-day events use VALUE=DATE; never touch them
-  if (prop.params["VALUE"] === "DATE") return prop;
+  // All-day events use VALUE=DATE; never touch them (RFC 5545: parameter values are case-insensitive)
+  const valueParam = prop.params["VALUE"];
+  if (typeof valueParam === "string" && valueParam.toUpperCase() === "DATE") return prop;
 
   // If the property already carries a TZID parameter, leave it alone
   // (the event already has explicit timezone info — we won't rebase it)
