@@ -128,13 +128,25 @@ export function renderUi(params: UiParams): string {
       transition: border-color .15s, background .15s;
     }
 
-    .mode-card input[type="radio"] { display: none; }
+    .mode-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      margin: 0;
+      padding: 0;
+      pointer-events: none;
+    }
 
     .mode-card.selected, .mode-card:has(input:checked) {
       border-color: #4f46e5;
       background: #eef2ff;
     }
 
+    .mode-card:has(input:focus-visible) {
+      outline: 3px solid #10b981;
+      outline-offset: 2px;
+    }
     .mode-card strong { font-size: .9rem; display: block; margin-bottom: .25rem; }
     .mode-card span   { font-size: .78rem; color: #555; line-height: 1.4; }
 
