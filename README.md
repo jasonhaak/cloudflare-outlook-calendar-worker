@@ -12,11 +12,11 @@ A Cloudflare Worker that acts as an iCal proxy and timezone normalization servic
 - [Environment Variables](#environment-variables)
   - [Variable Descriptions](#variable-descriptions)
   - [Example Configuration](#example-configuration)
-- [Endpoints](#endpoints)
-- [Iframe Usage](#iframe-usage)
 - [How it Works](#how-it-works)
 - [Installation & Development](#installation--development)
 - [Testing](#testing)
+- [Endpoints](#endpoints)
+- [Iframe Usage](#iframe-usage)
 - [Author & Licence](#author--licence)
 
 ## Features
@@ -84,6 +84,54 @@ This Worker only requires one optional environment variable.
 DEFAULT_TZ = "Europe/Berlin"
 ```
 
+## How it Works
+Outlook ICS feeds can produce shifted event times in a calendar when timestamps are emitted as UTC values that represent local wall-clock time or when timestamps are floating values without `TZID` metadata.
+
+This Worker supports three modes:
+
+| Mode | Behavior | Best Use |
+|---|---|---|
+| `force` | Converts UTC timestamps to local wall-clock time in the target IANA timezone, annotates floating timestamps with `TZID` and injects `VTIMEZONE`. | Default and recommended mode. |
+| `shift` | Adds a fixed minute offset to UTC timestamps and emits floating timestamps. | Troubleshooting or fixed-offset calendars. Not DST-aware. |
+| `passthrough` | Returns the upstream ICS feed unchanged. | Debugging source URL reachability. |
+
+### Timestamp Handling
+| Input Type | Example | `force` Mode Result |
+|---|---|---|
+| UTC timestamp | `DTSTART:20240615T100000Z` | Converted to local wall-clock time and emitted with `TZID`. |
+| Floating timestamp | `DTSTART:20240615T120000` | Time is preserved and emitted with `TZID`. |
+| Existing `TZID` timestamp | `DTSTART;TZID=America/New_York:20240615T120000` | Left unchanged. |
+| All-day date | `DTSTART;VALUE=DATE:20240615` | Left unchanged. |
+
+### UI Validation
+When the user generates a link through the UI, the browser immediately requests the generated `/calendar` URL. The result is shown only if the response is successful, has a `text/calendar` content type and contains `BEGIN:VCALENDAR`. Otherwise, the UI displays a red error message and does not show the generated link as usable.
+
+## Installation & Development
+1. **Clone the Repository**
+    ```bash
+    git clone https://github.com/jasonhaak/cloudflare-outlook-calendar-worker.git
+    cd cloudflare-outlook-calendar-worker
+    ```
+2. **Install Dependencies**
+    ```bash
+    npm install
+    ```
+3. **Configure Environment Variables**
+    - You can set environment variables in your `wrangler.toml` file or via the Cloudflare dashboard.
+4. **Deploy the Worker**
+    ```bash
+    npm run deploy
+    ```
+
+## Testing
+This project uses **Vitest** for unit tests. Run the suite locally:
+
+```bash
+npm test
+```
+
+The test suite currently contains 95 tests. It covers the core ICS transformation logic, timestamp parsing and conversion, VTIMEZONE generation, URL validation, timezone validation, offset validation, mode validation, SSRF-related source URL checks, UI rendering and Worker request handling for the main routes and `/calendar` success/error paths.
+
 ## Endpoints
 | Route | Description |
 |---|---|
@@ -137,54 +185,6 @@ Content-Security-Policy: frame-ancestors *
 ```
 
 Adjust this header before production use if you only want specific domains to embed the UI.
-
-## How it Works
-Outlook ICS feeds can produce shifted event times in a calendar when timestamps are emitted as UTC values that represent local wall-clock time or when timestamps are floating values without `TZID` metadata.
-
-This Worker supports three modes:
-
-| Mode | Behavior | Best Use |
-|---|---|---|
-| `force` | Converts UTC timestamps to local wall-clock time in the target IANA timezone, annotates floating timestamps with `TZID` and injects `VTIMEZONE`. | Default and recommended mode. |
-| `shift` | Adds a fixed minute offset to UTC timestamps and emits floating timestamps. | Troubleshooting or fixed-offset calendars. Not DST-aware. |
-| `passthrough` | Returns the upstream ICS feed unchanged. | Debugging source URL reachability. |
-
-### Timestamp Handling
-| Input Type | Example | `force` Mode Result |
-|---|---|---|
-| UTC timestamp | `DTSTART:20240615T100000Z` | Converted to local wall-clock time and emitted with `TZID`. |
-| Floating timestamp | `DTSTART:20240615T120000` | Time is preserved and emitted with `TZID`. |
-| Existing `TZID` timestamp | `DTSTART;TZID=America/New_York:20240615T120000` | Left unchanged. |
-| All-day date | `DTSTART;VALUE=DATE:20240615` | Left unchanged. |
-
-### UI Validation
-When the user generates a link through the UI, the browser immediately requests the generated `/calendar` URL. The result is shown only if the response is successful, has a `text/calendar` content type and contains `BEGIN:VCALENDAR`. Otherwise, the UI displays a red error message and does not show the generated link as usable.
-
-## Installation & Development
-1. **Clone the Repository**
-    ```bash
-    git clone https://github.com/jasonhaak/cloudflare-outlook-calendar-worker.git
-    cd cloudflare-outlook-calendar-worker
-    ```
-2. **Install Dependencies**
-    ```bash
-    npm install
-    ```
-3. **Configure Environment Variables**
-    - You can set environment variables in your `wrangler.toml` file or via the Cloudflare dashboard.
-4. **Deploy the Worker**
-    ```bash
-    npm run deploy
-    ```
-
-## Testing
-This project uses **Vitest** for unit tests. Run the suite locally:
-
-```bash
-npm test
-```
-
-The test suite currently contains 95 tests. It covers the core ICS transformation logic, timestamp parsing and conversion, VTIMEZONE generation, URL validation, timezone validation, offset validation, mode validation, SSRF-related source URL checks, UI rendering and Worker request handling for the main routes and `/calendar` success/error paths.
 
 ## Author & Licence
 This code was written by Jason Haak and is licensed under the MIT licence.
