@@ -494,11 +494,6 @@ export function transformIcs(icsText: string, opts: TransformOptions): string {
   const unfolded = unfoldLines(icsText);
   let lines = unfolded;
 
-  // Strip existing VTIMEZONE blocks — we'll re-add a clean one for "force" mode
-  if (opts.mode === "force") {
-    lines = stripVTimezoneBlocks(lines);
-  }
-
   // Transform each date-time property line
   lines = lines.map((line) => {
     const parsed = parsePropLine(line);
@@ -517,27 +512,4 @@ export function transformIcs(icsText: string, opts: TransformOptions): string {
 
   // Re-fold lines and join with CRLF
   return lines.map(foldLine).join("\r\n") + "\r\n";
-}
-
-/**
- * Remove all existing VTIMEZONE blocks from a lines array.
- * We do this before re-injecting the correct one in "force" mode.
- */
-function stripVTimezoneBlocks(lines: string[]): string[] {
-  const result: string[] = [];
-  let insideVtz = false;
-
-  for (const line of lines) {
-    if (line === "BEGIN:VTIMEZONE") {
-      insideVtz = true;
-      continue;
-    }
-    if (line === "END:VTIMEZONE") {
-      insideVtz = false;
-      continue;
-    }
-    if (!insideVtz) result.push(line);
-  }
-
-  return result;
 }

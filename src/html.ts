@@ -380,7 +380,7 @@ export function renderUi(params: UiParams): string {
     <h1>Outlook iCal Timezone Fixer</h1>
     <p class="intro">
       Generate a corrected subscription URL for Outlook calendar feeds that
-      appear with shifted times in Google Calendar or other calendar clients.
+      appear with shifted times in calendar apps.
     </p>
   </div>
 

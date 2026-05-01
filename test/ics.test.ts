@@ -498,6 +498,48 @@ describe("transformIcs — force mode", () => {
     const count = (result.match(/BEGIN:VTIMEZONE/g) ?? []).length;
     expect(count).toBe(1);
   });
+
+  it("preserves existing VTIMEZONE blocks for other timezone-aware events", () => {
+    const withExistingTimezone = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Test//EN",
+      "BEGIN:VTIMEZONE",
+      "TZID:America/New_York",
+      "BEGIN:STANDARD",
+      "TZOFFSETFROM:-0400",
+      "TZOFFSETTO:-0500",
+      "TZNAME:EST",
+      "DTSTART:19701101T020000",
+      "END:STANDARD",
+      "END:VTIMEZONE",
+      "BEGIN:VEVENT",
+      "DTSTART;TZID=America/New_York:20240115T090000",
+      "DTEND;TZID=America/New_York:20240115T100000",
+      "SUMMARY:Existing timezone event",
+      "UID:existing-tz@test",
+      "END:VEVENT",
+      "BEGIN:VEVENT",
+      "DTSTART:20240115T110000Z",
+      "DTEND:20240115T120000Z",
+      "SUMMARY:UTC event",
+      "UID:utc-event@test",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    const result = transformIcs(withExistingTimezone, {
+      tzid: "Europe/Berlin",
+      offsetMinutes: null,
+      mode: "force",
+    });
+
+    expect(result).toContain("TZID:America/New_York");
+    expect(result).toContain("DTSTART;TZID=America/New_York:20240115T090000");
+    expect(result).toContain("TZID:Europe/Berlin");
+    expect(result).toContain("DTSTART;TZID=Europe/Berlin:20240115T120000");
+    expect((result.match(/BEGIN:VTIMEZONE/g) ?? []).length).toBe(2);
+  });
 });
 
 describe("transformIcs — shift mode", () => {
@@ -537,6 +579,18 @@ describe("transformIcs — shift mode", () => {
     });
     expect(result).not.toContain("BEGIN:VTIMEZONE");
   });
+
+  it("uses the timezone default offset when no explicit shift offset is provided", () => {
+    const result = transformIcs(SAMPLE_ICS_UTC, {
+      tzid: "UTC",
+      offsetMinutes: null,
+      mode: "shift",
+    });
+
+    expect(result).toContain("DTSTART:20240315T110000");
+    expect(result).toContain("DTEND:20240315T120000");
+    expect(result).not.toContain("T110000Z");
+  });
 });
 
 // ─── EXDATE multi-value transformation ───────────────────────────────────────
@@ -567,6 +621,53 @@ describe("transformIcs — EXDATE with multiple UTC values", () => {
     expect(result).toContain("EXDATE;TZID=Europe/Berlin:");
     expect(result).toContain("20240122T120000");
     expect(result).toContain("20240129T120000");
+  });
+
+  it("leaves date-only EXDATE values unchanged", () => {
+    const dateOnly = ICS_WITH_EXDATE.replace(
+      "EXDATE:20240122T110000Z,20240129T110000Z",
+      "EXDATE;VALUE=DATE:20240122,20240129"
+    );
+
+    const result = transformIcs(dateOnly, {
+      tzid: "Europe/Berlin",
+      offsetMinutes: null,
+      mode: "force",
+    });
+
+    expect(result).toContain("EXDATE;VALUE=DATE:20240122,20240129");
+    expect(result).not.toContain("EXDATE;VALUE=DATE;TZID=");
+  });
+
+  it("transforms RDATE, DUE, and RECURRENCE-ID timestamps", () => {
+    const input = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Test//EN",
+      "BEGIN:VTODO",
+      "DUE:20240115T110000Z",
+      "RDATE:20240116T110000Z,20240117T110000Z",
+      "UID:todo@test",
+      "END:VTODO",
+      "BEGIN:VEVENT",
+      "RECURRENCE-ID:20240118T110000Z",
+      "DTSTART:20240118T110000Z",
+      "DTEND:20240118T120000Z",
+      "SUMMARY:Override",
+      "UID:override@test",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    const result = transformIcs(input, {
+      tzid: "Europe/Berlin",
+      offsetMinutes: null,
+      mode: "force",
+    });
+
+    expect(result).toContain("DUE;TZID=Europe/Berlin:20240115T120000");
+    expect(result).toContain("RDATE;TZID=Europe/Berlin:20240116T120000,20240117T120000");
+    expect(result).toContain("RECURRENCE-ID;TZID=Europe/Berlin:20240118T120000");
   });
 });
 
@@ -721,5 +822,14 @@ describe("generateVTimezone", () => {
     expect(vtz).toContain("TZID:UTC");
     expect(vtz).toContain("END:VTIMEZONE");
     expect(vtz).not.toContain("BEGIN:DAYLIGHT");
+  });
+
+  it("generates southern hemisphere DST rules", () => {
+    const vtz = generateVTimezone("Australia/Sydney");
+    expect(vtz).toContain("TZID:Australia/Sydney");
+    expect(vtz).toContain("BEGIN:DAYLIGHT");
+    expect(vtz).toContain("BEGIN:STANDARD");
+    expect(vtz).toContain("BYMONTH=10");
+    expect(vtz).toContain("BYMONTH=4");
   });
 });

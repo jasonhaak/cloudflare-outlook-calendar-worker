@@ -217,6 +217,15 @@ const KNOWN_TZ_CONFIGS: Record<string, TzConfig> = {
     dstDtstart: "19700308T020000",
     stdDtstart: "19701101T020000",
   },
+  // Australian Eastern Time
+  "Australia/Sydney": {
+    stdOffset: 600, dstOffset: 660,
+    stdName: "AEST", dstName: "AEDT",
+    dstRrule: "FREQ=YEARLY;BYDAY=1SU;BYMONTH=10",
+    stdRrule: "FREQ=YEARLY;BYDAY=1SU;BYMONTH=4",
+    dstDtstart: "19701004T020000",
+    stdDtstart: "19700405T030000",
+  },
 };
 
 /**

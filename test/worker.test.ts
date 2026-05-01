@@ -31,6 +31,7 @@ describe("worker fetch handler", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("rejects unsupported methods", async () => {
@@ -81,6 +82,7 @@ describe("calendar endpoint", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("requires a source URL", async () => {
@@ -157,7 +159,40 @@ describe("calendar endpoint", () => {
     const response = await worker.fetch(request(`/calendar?url=${source}`), env);
 
     expect(response.status).toBe(502);
-    expect(await responseText(response)).toContain("Upstream server returned 503 Unavailable");
+    expect(await responseText(response)).toContain(
+      "The calendar URL returned an error (503 Unavailable)"
+    );
+  });
+
+  it("explains Cloudflare upstream connection failures as likely URL problems", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("nope", { status: 522, statusText: "<none>" }))
+    );
+
+    const source = encodeURIComponent("https://wrong.example.com/calendar.ics");
+    const response = await worker.fetch(request(`/calendar?url=${source}`), env);
+    const body = await responseText(response);
+
+    expect(response.status).toBe(502);
+    expect(body).toContain("The calendar URL could not be reached (522)");
+    expect(body).toContain("Please check that the pasted link is correct");
+    expect(body).not.toContain("<none>");
+  });
+
+  it("explains private calendar URLs as access problems", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("private", { status: 403, statusText: "Forbidden" }))
+    );
+
+    const source = encodeURIComponent("https://outlook.example.com/private.ics");
+    const response = await worker.fetch(request(`/calendar?url=${source}`), env);
+    const body = await responseText(response);
+
+    expect(response.status).toBe(502);
+    expect(body).toContain("not publicly accessible");
+    expect(body).toContain("public subscription link");
   });
 
   it("rejects non-calendar upstream bodies", async () => {
@@ -177,6 +212,23 @@ describe("calendar endpoint", () => {
         new Response(SAMPLE_ICS, {
           status: 200,
           headers: { "Content-Length": "2000001" },
+        })
+      )
+    );
+
+    const source = encodeURIComponent("https://outlook.example.com/calendar.ics");
+    const response = await worker.fetch(request(`/calendar?url=${source}`), env);
+
+    expect(response.status).toBe(413);
+    expect(await responseText(response)).toContain("too large");
+  });
+
+  it("rejects oversized upstream calendars after reading the body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(`BEGIN:VCALENDAR\r\n${"X".repeat(2_000_000)}\r\nEND:VCALENDAR`, {
+          status: 200,
         })
       )
     );
@@ -247,6 +299,57 @@ describe("calendar endpoint", () => {
     expect(await responseText(response)).toContain("invalid redirect URL");
   });
 
+  it("returns a clear error for redirects without a Location header", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 302, statusText: "Found" }))
+    );
+
+    const source = encodeURIComponent("https://outlook.example.com/calendar.ics");
+    const response = await worker.fetch(request(`/calendar?url=${source}`), env);
+
+    expect(response.status).toBe(502);
+    expect(await responseText(response)).toContain(
+      "The calendar URL returned an error (302 Found)"
+    );
+  });
+
+  it("rejects redirect chains that exceed the limit", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("", {
+        status: 302,
+        headers: { Location: "https://outlook.example.com/next.ics" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const source = encodeURIComponent("https://outlook.example.com/calendar.ics");
+    const response = await worker.fetch(request(`/calendar?url=${source}`), env);
+
+    expect(response.status).toBe(502);
+    expect(await responseText(response)).toContain("Too many redirects");
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+  });
+
+  it("handles upstream body read failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
+        text: vi.fn().mockRejectedValue(new Error("cannot read body")),
+      } as unknown as Response)
+    );
+
+    const source = encodeURIComponent("https://outlook.example.com/calendar.ics");
+    const response = await worker.fetch(request(`/calendar?url=${source}`), env);
+
+    expect(response.status).toBe(502);
+    expect(await responseText(response)).toContain("cannot read body");
+  });
+
   it("handles upstream fetch exceptions", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
 
@@ -255,5 +358,28 @@ describe("calendar endpoint", () => {
 
     expect(response.status).toBe(502);
     expect(await responseText(response)).toContain("network down");
+  });
+
+  it("returns a timeout error when the upstream request is aborted", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("aborted", "AbortError"));
+          });
+        });
+      })
+    );
+
+    const source = encodeURIComponent("https://outlook.example.com/calendar.ics");
+    const pending = worker.fetch(request(`/calendar?url=${source}`), env);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    const response = await pending;
+
+    expect(response.status).toBe(504);
+    expect(await responseText(response)).toContain("timed out");
   });
 });

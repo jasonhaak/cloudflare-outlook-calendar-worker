@@ -144,7 +144,7 @@ async function handleCalendar(request: Request, env: Env): Promise<Response> {
   if (!upstreamResponse.ok) {
     return errorResponse(
       502,
-      `Upstream server returned ${upstreamResponse.status} ${upstreamResponse.statusText}`
+      formatUpstreamFailure(upstreamResponse.status, upstreamResponse.statusText)
     );
   }
 
@@ -210,6 +210,26 @@ class UpstreamError extends Error {
   ) {
     super(message);
   }
+}
+
+function formatUpstreamFailure(status: number, statusText: string): string {
+  const statusLabel = [status, statusText]
+    .filter((part) => String(part).trim() && String(part).trim() !== "<none>")
+    .join(" ");
+
+  if ([520, 521, 522, 523, 524].includes(status)) {
+    return `The calendar URL could not be reached (${statusLabel}). Please check that the pasted link is correct, publicly accessible, and points directly to an ICS calendar.`;
+  }
+
+  if (status === 401 || status === 403) {
+    return `The calendar URL is not publicly accessible (${statusLabel}). Please use a public subscription link, not a private browser or sharing page URL.`;
+  }
+
+  if (status === 404) {
+    return `The calendar URL was not found (${statusLabel}). Please check that the pasted link is complete and still valid.`;
+  }
+
+  return `The calendar URL returned an error (${statusLabel}). Please check that the pasted link points directly to a valid ICS calendar.`;
 }
 
 async function fetchUpstreamCalendar(sourceUrl: URL): Promise<Response> {
