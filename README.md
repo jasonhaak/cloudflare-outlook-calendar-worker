@@ -1,199 +1,273 @@
 # cloudflare-outlook-calendar-worker
+[![Release](https://img.shields.io/github/v/release/jasonhaak/cloudflare-outlook-calendar-worker)](https://github.com/jasonhaak/cloudflare-outlook-calendar-worker/releases/latest)
+[![Tests](https://img.shields.io/badge/tests-75%20passing-282828)](#testing)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-282828?logo=typescript)](https://www.typescriptlang.org/)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare)](https://workers.cloudflare.com/)
 
-A production-ready Cloudflare Worker that acts as an **iCal proxy and timezone
-normalization service** for Microsoft Outlook calendar feeds.
+A Cloudflare Worker that acts as an iCal proxy and timezone normalization
+service for Microsoft Outlook calendar feeds. It fetches an Outlook ICS
+subscription URL, rewrites problematic date-time values, and returns a corrected
+ICS feed that can be subscribed to from Google Calendar or other calendar
+clients.
 
-## The Problem
+The Worker also serves a lightweight HTML UI for generating and validating
+corrected ICS subscription links. The UI can be used standalone or embedded in
+another site through an iframe-friendly route.
 
-Outlook ICS subscription links sometimes cause events to appear shifted by 1–2
-hours in Google Calendar. This happens because:
-
-1. Outlook may emit timestamps as **UTC** (`DTSTART:20240315T120000Z`), where the
-   `Z` suffix means absolute UTC time. If the event was created at 12:00 in a
-   UTC+1 timezone, it should have been emitted as `11:00Z`, but Outlook sometimes
-   gets this wrong — or Google Calendar's interpretation diverges.
-2. Outlook may emit **floating timestamps** (`DTSTART:20240315T120000`, no `Z`,
-   no `TZID`), which have no timezone annotation. Google Calendar interprets
-   these as UTC, shifting them by the user's UTC offset.
-
-This Worker fetches any Outlook ICS feed and re-emits it with proper
-**TZID-annotated timestamps** and an embedded `VTIMEZONE` block, so the events
-appear at the correct local time in Google Calendar and other clients.
-
----
+## Table of Contents
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+  - [Variable Descriptions](#variable-descriptions)
+  - [Example Configuration](#example-configuration)
+- [Endpoints](#endpoints)
+- [Iframe Usage](#iframe-usage)
+- [How it Works](#how-it-works)
+- [Installation & Development](#installation--development)
+- [Testing](#testing)
+- [Limitations](#limitations)
+- [Future Improvements](#future-improvements)
+- [Author & Licence](#author--licence)
 
 ## Features
+- **Outlook ICS Proxy**: Fetches a public or signed Outlook ICS subscription URL and returns a corrected calendar feed.
+- **Timezone Normalization**: Converts UTC timestamps and annotates floating timestamps with a target timezone.
+- **Three Conversion Modes**: Supports `force`, `shift`, and `passthrough` modes.
+- **DST-Aware Conversion**: Uses the runtime `Intl` API for IANA timezone conversion in `force` mode.
+- **Fixed UTC Offset Support**: The UI can generate `shift` mode links from a fixed UTC offset when no IANA timezone should be used.
+- **Embedded VTIMEZONE**: Inserts a matching `VTIMEZONE` block for `force` mode.
+- **Generated Link Validation**: The UI checks that the generated `/calendar` URL returns a valid iCalendar feed before showing it as usable.
+- **Iframe-Friendly UI**: Provides `/embed` and `/?embed=1` for embedding the generator in another site.
+- **SSRF Mitigation**: Blocks non-HTTP(S) URLs, private IPv4 ranges, common local hostnames, common IPv6 local ranges, and cloud metadata endpoints.
+- **Redirect Revalidation**: Follows upstream redirects manually and validates each redirect target.
+- **Fetch Guardrails**: Applies redirect limits, request timeout handling, and a maximum ICS size.
+- **Zero Runtime Dependencies**: Runs as pure Cloudflare Workers TypeScript.
 
-- 🔄 **Proxy any Outlook ICS URL** via a single `?url=` query parameter
-- 🕐 **Three transformation modes**: `force` (DST-aware TZID), `shift` (fixed offset), `passthrough`
-- 🌍 **DST-aware conversion** using the Intl API — no timezone library required
-- 🛡️ **SSRF prevention** — blocks private IP ranges and non-HTTP(S) URLs
-- 📱 **Lightweight HTML UI** served by the Worker itself
-- ✅ **71 unit tests** covering all transformation modes and edge cases
-- 🚀 **Zero runtime dependencies** — pure Cloudflare Workers TypeScript
+## Quick Start
+You will deploy the Worker to Cloudflare, open the built-in UI, paste an Outlook
+ICS subscription URL, and generate a corrected ICS link that can be used in your
+calendar app.
 
----
+### 1. Prepare the Codebase
+Cloudflare needs a code source to deploy a Worker. Choose one of the following:
+- **Git (recommended)**: Fork this repository into your own GitHub/GitLab account.
+- **ZIP (manual upload)**: Download the repository as a ZIP file and upload it through Cloudflare.
 
-## Endpoints
+### 2. Add a Worker in Cloudflare
+- Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+- Navigate to **Workers & Pages -> Workers**.
+- Create a new Worker named `cloudflare-outlook-calendar-worker`.
 
-| Route | Description |
-|---|---|
-| `GET /` | HTML configuration UI |
-| `GET /calendar?url=…&tz=…&mode=…` | Returns the corrected ICS feed |
-| `GET /health` | JSON health-check |
+### 3. Configure the Default Timezone
+Set `DEFAULT_TZ` to the timezone that should be used when no `tz` query
+parameter is provided.
 
-### `/calendar` query parameters
+The default in this repository is:
 
-| Parameter | Required | Default | Description |
-|---|---|---|---|
-| `url` | ✅ | — | Outlook ICS source URL |
-| `tz` | | `Europe/Berlin` | IANA timezone (e.g. `America/New_York`) |
-| `mode` | | `force` | `force` \| `shift` \| `passthrough` |
-| `offset` | | auto | Manual UTC offset in minutes (used in `shift` mode) |
-
-### Example URLs
-
-```
-# Force TZID mode for Europe/Berlin (recommended)
-https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com%2F...&tz=Europe%2FBerlin&mode=force
-
-# Shift mode with explicit +60-minute offset
-https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com%2F...&tz=Europe%2FBerlin&mode=shift&offset=60
-
-# Passthrough — proxy without modifying
-https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com%2F...&mode=passthrough
+```toml
+DEFAULT_TZ = "Europe/Berlin"
 ```
 
----
-
-## Setup
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) 18+
-- A [Cloudflare account](https://dash.cloudflare.com/sign-up)
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)
-
-### Local development
+### 4. Deploy
+Deploy with Wrangler:
 
 ```bash
-# Install dependencies
 npm install
-
-# Run the Worker locally (hot-reload)
-npm run dev
-
-# Run tests
-npm test
-
-# TypeScript type check
-npm run type-check
-```
-
-### Deploy to Cloudflare Workers
-
-```bash
-# Authenticate with Cloudflare (first time only)
-npx wrangler login
-
-# Deploy
 npm run deploy
 ```
 
-The Worker will be available at `https://cloudflare-outlook-calendar-worker.<your-subdomain>.workers.dev`.
+After deployment, open:
 
----
+```text
+https://<your-worker>.<your-subdomain>.workers.dev/
+```
 
-## Timezone Normalization Strategy
+Paste your Outlook ICS URL, choose a target timezone or fixed UTC offset, and
+generate the corrected ICS subscription link.
 
-### Background: three timestamp types in RFC 5545
+## Environment Variables
+This Worker only requires one optional environment variable.
 
-| Type | Example | Interpretation |
+### Variable Descriptions
+| Variable | Required | Default | Description |
+|---|---:|---|---|
+| `DEFAULT_TZ` | No | `Europe/Berlin` | IANA timezone used when the request does not include a `tz` parameter. |
+
+### Example Configuration
+In `wrangler.toml`:
+
+```toml
+name = "cloudflare-outlook-calendar-worker"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+DEFAULT_TZ = "Europe/Berlin"
+```
+
+For private deployments, you can also set variables in the Cloudflare Dashboard
+under **Worker -> Settings -> Variables & Secrets**.
+
+## Endpoints
+| Route | Description |
+|---|---|
+| `GET /` | Full HTML configuration UI. |
+| `GET /?embed=1` | Iframe-friendly UI variant without footer or outer page chrome. |
+| `GET /embed` | Iframe-friendly UI route. |
+| `GET /calendar?url=...&tz=...&mode=...` | Fetches, validates, transforms, and returns the corrected ICS feed. |
+| `GET /health` | JSON health check. |
+
+### `/calendar` Query Parameters
+| Parameter | Required | Default | Description |
+|---|---:|---|---|
+| `url` | Yes | - | Source Outlook ICS subscription URL. Must be `http://` or `https://`. |
+| `tz` | No | `DEFAULT_TZ` | IANA timezone used by `force` mode. Use `UTC` with `shift` mode for fixed-offset generation. |
+| `mode` | No | `force` | One of `force`, `shift`, or `passthrough`. |
+| `offset` | No | Auto | UTC offset in minutes. Used only by `shift` mode. Valid range is `-840` to `840`. |
+
+### Example URLs
+Force TZID mode for Europe/Berlin:
+
+```text
+https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com%2F...&tz=Europe%2FBerlin&mode=force
+```
+
+Shift mode with explicit UTC+1 offset:
+
+```text
+https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com%2F...&tz=UTC&mode=shift&offset=60
+```
+
+Passthrough mode:
+
+```text
+https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com%2F...&mode=passthrough
+```
+
+## Iframe Usage
+Use `/embed` or `/?embed=1` when embedding the generator in another page.
+
+```html
+<iframe
+  src="https://your-worker.workers.dev/embed"
+  style="width: 100%; height: 760px; border: 0;"
+></iframe>
+```
+
+The embed view removes the footer, outer spacing, shadow, and rounded outer
+frame. The UI response also sends:
+
+```text
+Content-Security-Policy: frame-ancestors *
+```
+
+Adjust this header before production use if you only want specific domains to
+embed the UI.
+
+## How it Works
+Outlook ICS feeds can produce shifted event times in Google Calendar when
+timestamps are emitted as UTC values that represent local wall-clock time, or
+when timestamps are floating values without `TZID` metadata.
+
+This Worker supports three modes:
+
+| Mode | Behavior | Best Use |
 |---|---|---|
-| **UTC** (absolute) | `DTSTART:20240315T110000Z` | 11:00 UTC exactly. Clients display in user's local time. |
-| **Floating** (local) | `DTSTART:20240315T120000` | 12:00 in "some" local time — ambiguous. Google uses UTC. |
-| **TZID-based** | `DTSTART;TZID=Europe/Berlin:20240315T120000` | 12:00 in Europe/Berlin. Unambiguous. ✅ |
+| `force` | Converts UTC timestamps to local wall-clock time in the target IANA timezone, annotates floating timestamps with `TZID`, and injects `VTIMEZONE`. | Default and recommended mode. |
+| `shift` | Adds a fixed minute offset to UTC timestamps and emits floating timestamps. | Troubleshooting or fixed-offset calendars. Not DST-aware. |
+| `passthrough` | Returns the upstream ICS feed unchanged. | Debugging source URL reachability. |
 
-### Chosen strategy: `force` mode (TZID injection)
+### Timestamp Handling
+| Input Type | Example | `force` Mode Result |
+|---|---|---|
+| UTC timestamp | `DTSTART:20240615T100000Z` | Converted to local wall-clock time and emitted with `TZID`. |
+| Floating timestamp | `DTSTART:20240615T120000` | Time is preserved and emitted with `TZID`. |
+| Existing `TZID` timestamp | `DTSTART;TZID=America/New_York:20240615T120000` | Left unchanged. |
+| All-day date | `DTSTART;VALUE=DATE:20240615` | Left unchanged. |
 
-**Why**: The most correct fix is to turn all timestamps into unambiguous
-TZID-based form, which every modern calendar client supports. This avoids
-global string replacement and properly handles DST transitions.
+### UI Validation
+When the user generates a link through the UI, the browser immediately requests
+the generated `/calendar` URL. The result is shown only if the response is
+successful, has a `text/calendar` content type, and contains `BEGIN:VCALENDAR`.
+Otherwise, the UI displays a red error message and does not show the generated
+link as usable.
 
-**How it works**:
-1. Unfold RFC 5545 folded lines.
-2. For each date-time property (`DTSTART`, `DTEND`, `EXDATE`, `RDATE`, etc.):
-   - **UTC timestamps (`Z`)**: Convert wall-clock time to the target timezone
-     using `Intl.DateTimeFormat` (which is DST-aware), strip the `Z`, add
-     `TZID=<tzid>` parameter.
-   - **Floating timestamps**: Add `TZID=<tzid>` parameter, keep the time value
-     (we trust the event creator intended that wall-clock time in that timezone).
-   - **TZID-annotated timestamps**: Leave untouched.
-   - **All-day (`VALUE=DATE`)**: Leave untouched.
-3. Remove existing `VTIMEZONE` blocks and inject a fresh, correct one.
-4. Re-fold output lines and return with `text/calendar` content type.
+## Installation & Development
+### Prerequisites
+- Node.js 18+
+- npm
+- A Cloudflare account
+- Wrangler CLI, installed through this repository's dev dependencies
 
-### Example: before / after
-
-**Before** (UTC timestamp, shows 1 hour late in Europe/Berlin):
-```
-DTSTART:20240615T100000Z
-DTEND:20240615T110000Z
-```
-
-**After** (`force` mode, `tz=Europe/Berlin`):
-```
-DTSTART;TZID=Europe/Berlin:20240615T120000
-DTEND;TZID=Europe/Berlin:20240615T130000
-```
-(June → CEST = UTC+2, so 10:00Z becomes 12:00 local)
-
-**Before** (floating timestamp, Google Calendar misinterprets as UTC):
-```
-DTSTART:20240115T120000
+### Install Dependencies
+```bash
+npm install
 ```
 
-**After** (`force` mode, `tz=Europe/Berlin`):
-```
-DTSTART;TZID=Europe/Berlin:20240115T120000
-```
-(Time value preserved, TZID annotation added)
-
-**Before** (all-day event — should never be modified):
-```
-DTSTART;VALUE=DATE:20240315
+### Run Locally
+```bash
+npm run dev
 ```
 
-**After** (unchanged ✅):
-```
-DTSTART;VALUE=DATE:20240315
+Open the local Wrangler URL, usually:
+
+```text
+http://localhost:8787/
 ```
 
----
+### Type Check
+```bash
+npm run type-check
+```
+
+### Deploy
+```bash
+npm run deploy
+```
+
+## Testing
+Run the unit test suite:
+
+```bash
+npm test
+```
+
+Run TypeScript checks:
+
+```bash
+npm run type-check
+```
+
+Run a local Wrangler bundle check without deploying:
+
+```bash
+XDG_CONFIG_HOME=/tmp/wrangler-config npx wrangler deploy --dry-run
+```
+
+Current local verification:
+- `npm test`: 75 tests passing
+- `npm run type-check`: passing
+- `npx wrangler deploy --dry-run`: passing when Wrangler's config/log path is writable
 
 ## Limitations
-
 | Area | Notes |
 |---|---|
-| **Recurrence rules** | `RRULE` properties are not modified. `RECURRENCE-ID` and `EXDATE` are transformed consistently with `DTSTART`. DST ambiguity at transition boundaries could affect one-off recurrence exceptions. |
-| **DST transitions** | The Intl API is authoritative but the exact DST transition moment (e.g. 02:00 local → 03:00) can make times near the boundary ambiguous. This affects at most ~1 hour per year. |
-| **Malformed ICS** | Feeds that deviate significantly from RFC 5545 (e.g. missing `BEGIN:VCALENDAR`) are rejected with a clear error. Minor deviations (e.g. LF-only line endings) are tolerated. |
-| **SSRF** | Private IP ranges and non-HTTP(S) schemes are blocked. DNS rebinding attacks are not fully mitigatable at the Worker layer; a Cloudflare Gateway policy is recommended for production. |
-| **Timezone coverage** | The `force` mode uses the Intl API for conversion, which covers all IANA timezones. The VTIMEZONE block uses hand-crafted data for ~15 common European/US zones and a probed approximation for others. |
-| **Credential-protected feeds** | Outlook ICS subscription URLs are typically public/signed and do not require authentication. Password-protected feeds are not supported. |
+| Recurrence rules | `RRULE` values are not rewritten. `RECURRENCE-ID`, `EXDATE`, and `RDATE` are transformed when they carry date-time values. |
+| DST boundaries | `force` mode uses `Intl` timezone data, but ambiguous local times around DST transitions can still be tricky for calendar clients. |
+| VTIMEZONE coverage | Common European and US zones use hand-written rules. Other zones use a probed approximation unless the calendar client resolves the IANA timezone itself. |
+| Protected feeds | Password-protected Outlook feeds are not supported. Outlook's public/signed subscription URLs are the expected input. |
+| SSRF | The Worker blocks common private/local targets and revalidates redirects, but DNS rebinding cannot be fully mitigated at the Worker code layer alone. |
+| Large feeds | Upstream ICS responses larger than the configured size limit are rejected. |
 
----
+## Future Improvements
+- Store named presets in Cloudflare KV and expose short stable URLs.
+- Add scheduled background refresh and cache warming through Cron Triggers.
+- Support merging multiple source calendars into one ICS feed.
+- Replace approximate fallback `VTIMEZONE` generation with bundled tzdata.
+- Add GitHub Actions and coverage publishing if public CI is desired.
 
-## Possible Future Improvements
+## Author & Licence
+Copyright (c) 2026 Jason Haak.
 
-- **Preset storage**: Store named configurations (URL + timezone + mode) in
-  Cloudflare KV so users can share short links like `/preset/my-work-cal`.
-- **Permanent share links**: Generate a stable hash of the configuration
-  and serve it as a short URL, e.g. `/c/abc123` → ICS output.
-- **Background refresh**: Use Cloudflare Cron Triggers to pre-fetch and cache
-  ICS feeds, improving latency for subscribers and reducing load on Outlook.
-- **Multiple calendar merge**: Accept multiple `url=` parameters and merge the
-  ICS feeds into a single output calendar.
-- **VTIMEZONE completeness**: Bundle a full `tzdata` snapshot (via
-  `@touch4it/ical-timezones` or similar) for perfect VTIMEZONE generation for
-  any IANA timezone.
+Released under the [MIT License](LICENSE).

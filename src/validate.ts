@@ -170,7 +170,12 @@ export function validateTimezone(tzid: string): string {
  */
 export function validateOffsetMinutes(raw: string | null): number | null {
   if (raw === null || raw === "") return null;
-  const n = parseInt(raw, 10);
+  if (!/^[+-]?\d+$/.test(raw)) {
+    throw new Error(
+      "Invalid UTC offset. Provide an integer between -840 and 840 (minutes)."
+    );
+  }
+  const n = Number(raw);
   if (isNaN(n) || Math.abs(n) > 840) {
     throw new Error(
       "Invalid UTC offset. Provide an integer between -840 and 840 (minutes)."

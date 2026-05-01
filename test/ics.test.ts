@@ -69,10 +69,11 @@ describe("foldLine", () => {
     const line = "X-SOME-PROPERTY:ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz";
     const folded = foldLine(line);
     const physicalLines = folded.split("\r\n");
-    expect(physicalLines[0]!.length).toBeLessThanOrEqual(75);
+    const encoder = new TextEncoder();
+    expect(encoder.encode(physicalLines[0]!).length).toBeLessThanOrEqual(75);
     physicalLines.slice(1).forEach((l) => {
       expect(l.startsWith(" ")).toBe(true);
-      expect(l.length).toBeLessThanOrEqual(75);
+      expect(encoder.encode(l).length).toBeLessThanOrEqual(75);
     });
     // Reassembling should give back the original
     const reassembled = physicalLines
@@ -82,6 +83,17 @@ describe("foldLine", () => {
     // The original is recoverable after unfolding
     const unfolded = unfoldLines(folded);
     expect(unfolded).toEqual([line]);
+  });
+
+  it("folds by UTF-8 octets without splitting multi-byte characters", () => {
+    const line = `SUMMARY:${"ä".repeat(50)}`;
+    const folded = foldLine(line);
+    const encoder = new TextEncoder();
+
+    folded.split("\r\n").forEach((physicalLine) => {
+      expect(encoder.encode(physicalLine).length).toBeLessThanOrEqual(75);
+    });
+    expect(unfoldLines(folded)).toEqual([line]);
   });
 });
 
@@ -107,6 +119,30 @@ describe("parsePropLine", () => {
     expect(result).toEqual({
       name: "DTSTART",
       params: { VALUE: "DATE" },
+      value: "20240315",
+    });
+  });
+
+  it("parses quoted parameters containing semicolons", () => {
+    const result = parsePropLine('ATTENDEE;CN="Doe; Jane";ROLE=REQ-PARTICIPANT:mailto:jane@example.com');
+    expect(result).toEqual({
+      name: "ATTENDEE",
+      params: {
+        CN: '"Doe; Jane"',
+        ROLE: "REQ-PARTICIPANT",
+      },
+      value: "mailto:jane@example.com",
+    });
+  });
+
+  it("parses quoted parameters containing colons", () => {
+    const result = parsePropLine('DTSTART;X-LABEL="Room: Main";VALUE=DATE:20240315');
+    expect(result).toEqual({
+      name: "DTSTART",
+      params: {
+        "X-LABEL": '"Room: Main"',
+        VALUE: "DATE",
+      },
       value: "20240315",
     });
   });
@@ -622,6 +658,10 @@ describe("validateOffsetMinutes", () => {
 
   it("throws for out-of-range offset", () => {
     expect(() => validateOffsetMinutes("900")).toThrow();
+  });
+
+  it("throws for partially numeric offsets", () => {
+    expect(() => validateOffsetMinutes("60abc")).toThrow();
   });
 });
 

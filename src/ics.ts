@@ -92,13 +92,31 @@ export function unfoldLines(text: string): string[] {
  * with CRLF + SPACE, with continuation lines starting with a space.
  */
 export function foldLine(line: string): string {
-  if (line.length <= 75) return line;
-  const chunks: string[] = [line.slice(0, 75)];
-  let remaining = line.slice(75);
-  while (remaining.length > 0) {
-    chunks.push(" " + remaining.slice(0, 74));
-    remaining = remaining.slice(74);
+  const encoder = new TextEncoder();
+  if (encoder.encode(line).length <= 75) return line;
+
+  const chunks: string[] = [];
+  let chunk = "";
+  let chunkBytes = 0;
+  let limit = 75;
+
+  for (const char of Array.from(line)) {
+    const charBytes = encoder.encode(char).length;
+    if (chunk !== "" && chunkBytes + charBytes > limit) {
+      chunks.push(chunks.length === 0 ? chunk : ` ${chunk}`);
+      chunk = char;
+      chunkBytes = charBytes;
+      limit = 74;
+    } else {
+      chunk += char;
+      chunkBytes += charBytes;
+    }
   }
+
+  if (chunk !== "") {
+    chunks.push(chunks.length === 0 ? chunk : ` ${chunk}`);
+  }
+
   return chunks.join("\r\n");
 }
 
@@ -113,6 +131,40 @@ export interface ParsedProp {
   value: string;
 }
 
+function indexOfUnquoted(input: string, needle: string): number {
+  let insideQuote = false;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    if (char === '"') {
+      insideQuote = !insideQuote;
+    } else if (char === needle && !insideQuote) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function splitUnquoted(input: string, delimiter: string): string[] {
+  const result: string[] = [];
+  let insideQuote = false;
+  let segmentStart = 0;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    if (char === '"') {
+      insideQuote = !insideQuote;
+    } else if (char === delimiter && !insideQuote) {
+      result.push(input.slice(segmentStart, i));
+      segmentStart = i + 1;
+    }
+  }
+
+  result.push(input.slice(segmentStart));
+  return result;
+}
+
 /**
  * Parse an unfolded ICS property line into its constituent parts.
  *
@@ -121,19 +173,19 @@ export interface ParsedProp {
  *          → { name: "DTSTART", params: { TZID: "Europe/Berlin" }, value: "20240315T120000" }
  */
 export function parsePropLine(line: string): ParsedProp | null {
-  const colonIdx = line.indexOf(":");
+  const colonIdx = indexOfUnquoted(line, ":");
   if (colonIdx === -1) return null;
 
   const nameAndParams = line.slice(0, colonIdx);
   const value = line.slice(colonIdx + 1);
 
-  const segments = nameAndParams.split(";");
+  const segments = splitUnquoted(nameAndParams, ";");
   const name = (segments[0] ?? "").toUpperCase();
   const params: Record<string, string> = {};
 
   for (let i = 1; i < segments.length; i++) {
     const seg = segments[i] ?? "";
-    const eqIdx = seg.indexOf("=");
+    const eqIdx = indexOfUnquoted(seg, "=");
     if (eqIdx !== -1) {
       params[seg.slice(0, eqIdx).toUpperCase()] = seg.slice(eqIdx + 1);
     }
