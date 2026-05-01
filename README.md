@@ -184,7 +184,7 @@ This project uses **Vitest** for unit tests. Run the suite locally:
 npm test
 ```
 
-The test suite covers the core ICS transformation logic, timestamp parsing and conversion, VTIMEZONE generation, URL validation, timezone validation, offset validation, mode validation, and SSRF-related source URL checks. The `/calendar` fetch handler is currently verified through type checking and Wrangler dry-run bundling, not through dedicated request-level unit tests.
+The test suite currently contains 95 tests. It covers the core ICS transformation logic, timestamp parsing and conversion, VTIMEZONE generation, URL validation, timezone validation, offset validation, mode validation, SSRF-related source URL checks, UI rendering and Worker request handling for the main routes and `/calendar` success/error paths.
 
 ## Author & Licence
 This code was written by Jason Haak and is licensed under the MIT licence.
