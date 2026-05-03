@@ -45,338 +45,12 @@ export function renderUi(params: UiParams): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Outlook iCal Timezone Fixer</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --white: #FFFFFF;
-      --logo-white: #F6F6F6;
-      --light-gray: #8F8F8F;
-      --gray: #282828;
-      --dark-gray: #27292B;
-      --black: #0A0A0A;
-      --error: #B00020;
-      --error-bg: #FFF5F6;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                   Helvetica, Arial, sans-serif;
-      background: var(--logo-white);
-      color: var(--black);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
-    }
-
-    main {
-      background: var(--white);
-      border: 1px solid var(--light-gray);
-      border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(10, 10, 10, .08);
-      overflow: hidden;
-      max-width: 720px;
-      width: 100%;
-    }
-
-    body.embedded {
-      background: transparent;
-      min-height: auto;
-      padding: 0;
-    }
-
-    body.embedded main {
-      border-radius: 0;
-      box-shadow: none;
-      max-width: none;
-    }
-
-    body.embedded footer { display: none; }
-
-    .header {
-      background: var(--black);
-      color: var(--white);
-      padding: 1.6rem 2.5rem 1.45rem;
-    }
-
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: .5rem;
-      color: var(--white);
-    }
-
-    .intro, .hint, .note, .mode-card span {
-      color: var(--gray);
-      line-height: 1.5;
-    }
-
-    .intro {
-      color: var(--logo-white);
-      font-size: .9rem;
-      margin-bottom: 0;
-      max-width: 58rem;
-    }
-
-    .content {
-      padding: 1.65rem 2.5rem 2rem;
-    }
-
-    .note {
-      background: var(--logo-white);
-      border-left: 4px solid var(--black);
-      border-radius: 0 7px 7px 0;
-      font-size: .82rem;
-      margin-bottom: 1.5rem;
-      padding: .8rem .9rem;
-    }
-
-    label {
-      display: block;
-      font-size: .85rem;
-      font-weight: 600;
-      margin-bottom: .35rem;
-      color: var(--dark-gray);
-    }
-
-    input[type="text"], input[type="url"], input[type="number"], select {
-      width: 100%;
-      padding: .55rem .75rem;
-      border: 1.5px solid var(--light-gray);
-      border-radius: 7px;
-      font-size: .95rem;
-      outline: none;
-      transition: border-color .15s, box-shadow .15s;
-      background: var(--white);
-      color: var(--black);
-    }
-
-    input:focus, select:focus {
-      border-color: var(--black);
-      background: var(--white);
-      box-shadow: 0 0 0 3px rgba(40, 40, 40, .12);
-    }
-
-    .field { margin-bottom: 1.25rem; }
-
-    .hint {
-      font-size: .78rem;
-      margin-top: .3rem;
-    }
-
-    .other-panel {
-      background: var(--logo-white);
-      border: 1px solid var(--light-gray);
-      border-radius: 7px;
-      display: none;
-      margin-top: .75rem;
-      padding: .85rem;
-    }
-
-    .other-panel.open { display: block; }
-
-    .choice-row {
-      display: flex;
-      align-items: center;
-      gap: .5rem;
-      font-size: .84rem;
-      font-weight: 600;
-      margin-bottom: .55rem;
-    }
-
-    .choice-row input { flex: 0 0 auto; }
-
-    .choice-field {
-      display: none;
-      margin: .35rem 0 1rem 1.4rem;
-    }
-
-    .choice-field.open { display: block; }
-
-    .mode-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: .75rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .mode-card {
-      border: 2px solid var(--light-gray);
-      border-radius: 8px;
-      padding: .75rem 1rem;
-      cursor: pointer;
-      transition: border-color .15s, background .15s, box-shadow .15s;
-    }
-
-    .mode-card.disabled {
-      background: var(--logo-white);
-      border-color: var(--light-gray);
-      cursor: not-allowed;
-      opacity: .55;
-    }
-
-    .mode-card input[type="radio"] {
-      position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      margin: 0;
-      padding: 0;
-      pointer-events: none;
-    }
-
-    .mode-card.selected, .mode-card:has(input:checked) {
-      border-color: var(--black);
-      background: var(--logo-white);
-      box-shadow: inset 4px 0 0 var(--black);
-    }
-
-    .mode-card:has(input:focus-visible) {
-      outline: 3px solid var(--gray);
-      outline-offset: 2px;
-    }
-    .mode-card strong { font-size: .9rem; display: block; margin-bottom: .25rem; }
-    .mode-card span   { font-size: .78rem; }
-
-    button {
-      width: 100%;
-      padding: .7rem 1rem;
-      background: var(--black);
-      color: var(--white);
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background .15s, transform .15s;
-      margin-top: .5rem;
-    }
-
-    button:hover { background: var(--gray); }
-    button:active { transform: translateY(1px); }
-    button:disabled {
-      background: var(--light-gray);
-      cursor: wait;
-      transform: none;
-    }
-
-    #result {
-      background: var(--logo-white);
-      border: 2px solid var(--black);
-      border-radius: 8px;
-      display: none;
-      margin-top: 1.5rem;
-      padding: 1rem;
-    }
-
-    .result-title {
-      color: var(--black);
-      font-size: 1rem;
-      font-weight: 700;
-      margin-bottom: .25rem;
-    }
-
-    .result-copy {
-      color: var(--gray);
-      font-size: .84rem;
-      line-height: 1.5;
-      margin-bottom: .85rem;
-    }
-
-    #result label { margin-bottom: .4rem; }
-
-    .result-url-wrap {
-      display: flex;
-      gap: .5rem;
-    }
-
-    #resultUrl {
-      flex: 1;
-      font-family: monospace;
-      font-size: .82rem;
-      padding: .5rem .75rem;
-      border: 1.5px solid var(--light-gray);
-      border-radius: 7px;
-      background: var(--white);
-      word-break: break-all;
-    }
-
-    .copy-btn {
-      width: auto;
-      padding: .5rem .9rem;
-      margin-top: 0;
-      font-size: .85rem;
-      flex-shrink: 0;
-    }
-
-    .result-actions {
-      display: flex;
-      gap: .5rem;
-      margin-top: .75rem;
-    }
-
-    .secondary-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 2.25rem;
-      padding: .5rem .9rem;
-      border: 1.5px solid var(--light-gray);
-      border-radius: 7px;
-      color: var(--black);
-      text-decoration: none;
-      font-size: .85rem;
-      font-weight: 600;
-      background: var(--white);
-    }
-
-    .secondary-link:hover {
-      border-color: var(--black);
-    }
-
-    .info-box {
-      margin-top: 1.25rem;
-      background: var(--logo-white);
-      border: 1px solid var(--light-gray);
-      border-radius: 8px;
-      padding: .75rem 1rem;
-      font-size: .82rem;
-      color: var(--gray);
-      line-height: 1.5;
-    }
-
-    .error-box {
-      margin-top: 1rem;
-      background: var(--error-bg);
-      border: 1.5px solid var(--error);
-      border-radius: 8px;
-      padding: .75rem 1rem;
-      font-size: .85rem;
-      color: var(--error);
-      line-height: 1.45;
-    }
-
-    footer {
-      margin-top: 2rem;
-      font-size: .78rem;
-      color: var(--light-gray);
-      text-align: center;
-    }
-
-    @media (max-width: 560px) {
-      .header, .content { padding-left: 1.25rem; padding-right: 1.25rem; }
-      .result-url-wrap, .result-actions {
-        flex-direction: column;
-      }
-      .copy-btn { width: 100%; }
-    }
-  </style>
+  <link rel="stylesheet" href="${esc(workerUrl)}/styles.css" />
 </head>
 <body class="${embedded ? "embedded" : ""}">
-<main>
-  <div class="header">
+<main class="shell">
+<section class="tool">
+  <div class="heading">
     <h1>Outlook iCal Timezone Fixer</h1>
     <p class="intro">
       Generate a corrected subscription URL for Outlook calendar feeds that
@@ -384,7 +58,7 @@ export function renderUi(params: UiParams): string {
     </p>
   </div>
 
-  <div class="content">
+  <div class="form">
     <p class="note">
       This page does not store your calendar URL. The generated link points
       back to this Worker, which fetches the original feed and applies the
@@ -478,7 +152,7 @@ export function renderUi(params: UiParams): string {
       </div>
     </div>
 
-    <div id="formError" class="error-box" style="display:none;"></div>
+    <div id="formError" class="error-box"></div>
 
     <button id="generateBtn" type="submit">Generate corrected ICS URL</button>
     </form>
@@ -501,12 +175,13 @@ export function renderUi(params: UiParams): string {
     <div class="info-box" id="infoBox"></div>
     </div>
   </div>
+</section>
 </main>
 
 <footer>
-  Cloudflare Worker - Outlook iCal Proxy -
+  cloudflare-outlook-calendar-worker
   <a href="https://github.com/jasonhaak/cloudflare-outlook-calendar-worker"
-     style="color:inherit" target="_blank" rel="noopener">GitHub</a>
+     target="_blank" rel="noopener">GitHub</a>
 </footer>
 
 <script>

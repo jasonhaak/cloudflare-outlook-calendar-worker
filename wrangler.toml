@@ -6,3 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # Default timezone applied when none is provided in the request
 DEFAULT_TZ = "Europe/Berlin"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.css"]
+fallthrough = true

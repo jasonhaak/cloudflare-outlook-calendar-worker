@@ -1,4 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../src/styles.css", async () => {
+  const { readFileSync } = await import("node:fs");
+  return {
+    default: readFileSync(new URL("../src/styles.css", import.meta.url), "utf8"),
+  };
+});
+
 import worker from "../src/index.js";
 
 const env = { DEFAULT_TZ: "Europe/Berlin" };
@@ -57,6 +65,16 @@ describe("worker fetch handler", () => {
 
     expect(response.status).toBe(200);
     expect(body).toContain('<body class="embedded">');
+  });
+
+  it("serves the external UI stylesheet", async () => {
+    const response = await worker.fetch(request("/styles.css"), env);
+    const body = await responseText(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toContain("text/css");
+    expect(body).toContain('font-family: "Lato"');
+    expect(body).toContain("body.embedded footer");
   });
 
   it("serves the health check", async () => {
