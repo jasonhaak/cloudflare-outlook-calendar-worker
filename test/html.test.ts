@@ -12,6 +12,10 @@ describe("renderUi", () => {
     expect(html).toContain("https://calendar.example.com");
     expect(html).toContain('<option value="Europe/London" selected>');
     expect(html).toContain('<body class="">');
+    expect(html).toContain('<link rel="stylesheet" href="https://calendar.example.com/styles.css" />');
+    expect(html).not.toContain("<style>");
+    expect(html).toContain("cloudflare-outlook-calendar-worker");
+    expect(html).toContain(">GitHub</a>");
   });
 
   it("renders the embedded UI variant", () => {
@@ -21,7 +25,7 @@ describe("renderUi", () => {
     });
 
     expect(html).toContain('<body class="embedded">');
-    expect(html).toContain("body.embedded footer { display: none; }");
+    expect(html).toContain('<link rel="stylesheet" href="https://calendar.example.com/styles.css" />');
   });
 
   it("includes custom timezone and fixed offset controls", () => {

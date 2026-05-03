@@ -6,6 +6,7 @@
  * Routes:
  *   GET /              → HTML configuration UI
  *   GET /embed         → iframe-friendly HTML configuration UI
+ *   GET /styles.css    → UI stylesheet
  *   GET /calendar      → Fetch, transform, and return the corrected ICS feed
  *   GET /health        → Simple health-check endpoint
  *
@@ -18,6 +19,7 @@
 
 import { renderUi } from "./html.js";
 import { transformIcs } from "./ics.js";
+import stylesCss from "./styles.css";
 import {
   validateSourceUrl,
   validateTimezone,
@@ -55,6 +57,10 @@ export default {
       return handleUi(request, env);
     }
 
+    if (path === "/styles.css") {
+      return handleStylesheet();
+    }
+
     if (path === "/calendar") {
       return handleCalendar(request, env);
     }
@@ -82,6 +88,16 @@ function handleUi(request: Request, env: Env): Response {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "public, max-age=300",
       "Content-Security-Policy": "frame-ancestors *",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+function handleStylesheet(): Response {
+  return new Response(stylesCss, {
+    headers: {
+      "Content-Type": "text/css; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
       "X-Content-Type-Options": "nosniff",
     },
   });
