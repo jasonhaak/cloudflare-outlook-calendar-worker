@@ -168,7 +168,7 @@ Passthrough mode:
 https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com%2F...&mode=passthrough
 ```
 
-## Iframe Usage
+## iFrame Usage
 Use `/embed` or `/?embed=1` when embedding the generator in another page.
 
 ```html
