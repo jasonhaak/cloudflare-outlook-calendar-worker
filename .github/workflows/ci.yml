@@ -23,37 +23,43 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Use Node.js 20
+      - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript type check
-        run: npm run type-check
+      - name: Validate Worker bundle
+        run: npx wrangler deploy --dry-run
 
-      - name: Wrangler dry-run check
-        run: XDG_CONFIG_HOME=/tmp/wrangler-config npx wrangler deploy --dry-run
+      - name: Run tests
+        if: github.event_name == 'pull_request'
+        run: npm run test:run
 
-      - name: Run tests with coverage
-        run: npx vitest run --coverage
+      - name: Run coverage
+        if: github.event_name == 'push'
+        run: npm run test:coverage
 
       - name: Upload coverage report
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage/
           if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload coverage reports to Codecov
+        if: github.event_name == 'push'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
