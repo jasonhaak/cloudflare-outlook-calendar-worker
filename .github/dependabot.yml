@@ -16,14 +16,8 @@ updates:
     groups:
       runtime:
         dependency-type: "production"
-        update-types:
-          - "minor"
-          - "patch"
       dev:
         dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -41,6 +35,3 @@ updates:
       actions:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
