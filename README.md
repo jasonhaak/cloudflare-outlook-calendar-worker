@@ -10,8 +10,8 @@ A Cloudflare Worker that acts as an iCal proxy and timezone normalization servic
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [Environment Variables](#environment-variables)
-  - [Variable Descriptions](#variable-descriptions)
-  - [Example Configuration](#example-configuration)
+    - [Variable Descriptions](#variable-descriptions)
+    - [Example Configuration](#example-configuration)
 - [How it Works](#how-it-works)
 - [Installation & Development](#installation--development)
 - [Testing](#testing)
@@ -35,32 +35,31 @@ You will learn how to deploy the worker to Cloudflare, open the built-in UI and 
 ### 1. Prepare the Codebase
 Cloudflare always requires a code source (repository or ZIP) to deploy a Worker. Choose one of the following:
 - **Git (recommended)**: Fork this repository into your own GitHub/GitLab account.
+    - **CI pipeline (optional)**: If you want to run the tests and checks in CI, set up a pipeline in your fork that runs the same checks as this repository and deploys to Cloudflare.
 - **ZIP (manual upload)**: Download the code as a ZIP file and prepare it for upload.
 
 ### 2. Add a Worker in Cloudflare
-- Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
-- Navigate to **Workers & Pages -> Workers** and create a new Worker with the name `outlook-calendar-worker`.
+1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Navigate to **Workers & Pages -> Workers** and create a new Worker with the name `outlook-calendar-worker`.
 
 ### 3. Add Environment Variables
 > **Note**: See the [Environment Variables](#environment-variables) section below for variable descriptions and an example configuration.
-
 There are multiple ways to provide environment variables for your Worker:
-- Set them directly in the Cloudflare Dashboard (**Worker -> Settings -> Variables & Secrets**). This keeps sensitive values out of your source code and version control.
-- You can define them in your `wrangler.toml` file (not recommended for secrets or sensitive data if your repository is public).
-- You can deliver them through your CI/CD pipeline or other deployment automation.
+- **Cloudflare Dashboard**: Set them directly in the Cloudflare Dashboard (**Worker -> Settings -> Variables & Secrets**). This keeps sensitive values out of your source code and version control.
+- **Wrangler**: You can define them in your `wrangler.toml` file (not recommended for secrets or sensitive data if your repository is public).
+- **CI pipeline**: You can deliver them through your CI/CD pipeline or other deployment automation.
 
-> **Important:** If you deploy using **GitHub/GitLab integration**, any variables set in the Cloudflare Dashboard as plain text or JSON will be **overwritten** during deployment.
+> **Important:** If you deploy using **Cloudflare Git integration**, any variables set in the Cloudflare Dashboard as plain text or JSON will be **overwritten** during deployment.
 > To prevent this:
 > - Option 1: Add `--keep-vars` to your deployment command in **Settings -> Build -> Deploy command** (e.g. `npx wrangler deploy --keep-vars`).
 > - Option 2: Set your variables as *secrets* in the Dashboard, which are always preserved.
-
 ### 4. Deploy
-- **Git**: Connect your forked repository directly to your GitHub/GitLab account in the Cloudflare Dashboard. Cloudflare will build and deploy automatically.
-- **ZIP**: Upload your prepared ZIP file using the Dashboard’s editor or deployment UI.
+- **Cloudflare Git integration (recommended)**: Connect your forked repository directly to your GitHub/GitLab account in the Cloudflare Dashboard. Cloudflare will build and deploy automatically. Additional information about the Git integration for Cloudflare Workers can be found in the [Cloudflare documentation](https://developers.cloudflare.com/workers/ci-cd/builds/).
+- **ZIP (manual upload)**: Upload your prepared ZIP file using the Dashboard’s editor or deployment UI.
 - **Wrangler**: Deploy from your local checkout with `npm run deploy`.
+- **CI pipeline**: If you want to have control over the CI checks and deployment, you can set up your own pipeline that runs the tests and deploys to Cloudflare. You can use the same CI configuration as this repository, which is available in `.github/workflows/ci.yml`. Make sure to update the deployment step with your own Cloudflare API credentials and Worker name. Additional information on setting up CI/CD pipelines for Cloudflare Workers can be found in the [Cloudflare documentation](https://developers.cloudflare.com/workers/ci-cd/external-cicd/).
 
 > **Important:** When using Cloudflare Git integration, go to **Settings -> Build -> Branch Control** in your Worker project. Make sure to **deactivate** (uncheck) the option for enabling builds for non-production branches. If this setting is active, any push to your `develop` (or other non-production) branch will trigger a deployment to your Worker, which may not be desired for production stability.
-
 ### 5. Open the UI and use the Service
 
 Open:
@@ -112,32 +111,35 @@ When the user generates a link through the UI, the browser immediately requests 
     git clone https://github.com/jasonhaak/outlook-calendar-worker.git
     cd outlook-calendar-worker
     ```
+
 2. **Install Dependencies**
     ```bash
     npm install
     ```
+
 3. **Configure Environment Variables**
-    - You can set environment variables in your `wrangler.toml` file or via the Cloudflare dashboard.
-4. **Deploy the Worker**
+    - You can set environment variables in your `wrangler.toml` file.
+
+4. **Deploy the Worker Locally**
     ```bash
-    npm run deploy
+    npm wrangler dev
     ```
 
 ## Testing
-This project uses **Vitest** for unit tests. Run the suite locally:
+This project uses `Vitest` for unit tests. Run the suite locally:
 
 ```bash
 npm test
 ```
 
-The test suite currently contains 95 tests. It covers the core ICS transformation logic, timestamp parsing and conversion, VTIMEZONE generation, URL validation, timezone validation, offset validation, mode validation, SSRF-related source URL checks, UI rendering and Worker request handling for the main routes and `/calendar` success/error paths.
+The test suite covers the core ICS transformation logic, timestamp parsing and conversion, VTIMEZONE generation, URL validation, timezone validation, offset validation, mode validation, SSRF-related source URL checks, UI rendering and Worker request handling for the main routes and `/calendar` success/error paths.
 
 ## Endpoints
 | Route | Description |
 |---|---|
 | `GET /` | Full HTML configuration UI. |
-| `GET /?embed=1` | Iframe-friendly UI variant without footer or outer page chrome. |
-| `GET /embed` | Iframe-friendly UI route. |
+| `GET /?embed=1` | iFrame-friendly UI variant without footer or outer page chrome. |
+| `GET /embed` | iFrame-friendly UI route. |
 | `GET /calendar?url=...&tz=...&mode=...` | Fetches, validates, transforms and returns the corrected ICS feed. |
 | `GET /health` | JSON health check. |
 
@@ -149,7 +151,7 @@ The test suite currently contains 95 tests. It covers the core ICS transformatio
 | `mode` | No | `force` | One of `force`, `shift` or `passthrough`. |
 | `offset` | No | Auto | UTC offset in minutes. Used only by `shift` mode. Valid range is `-840` to `840`. |
 
-### Example URLs
+### Examples
 Force TZID mode for Europe/Berlin:
 
 ```text
@@ -169,7 +171,9 @@ https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com
 ```
 
 ## iFrame Usage
-Use `/embed` or `/?embed=1` when embedding the generator in another page.
+The UI is designed to be embedded in another page. It automatically switches to embedded mode when loaded inside an iframe. You can also force embedded mode with `/embed` or `/?embed=1`.
+
+Recommended iFrame embedding:
 
 ```html
 <iframe
@@ -178,7 +182,9 @@ Use `/embed` or `/?embed=1` when embedding the generator in another page.
 ></iframe>
 ```
 
-The embed view removes the footer, outer spacing, shadow and rounded outer frame. The UI response also sends:
+The embed view removes the footer, outer spacing, shadow and rounded outer frame.
+
+The UI response also sends:
 
 ```text
 Content-Security-Policy: frame-ancestors *
