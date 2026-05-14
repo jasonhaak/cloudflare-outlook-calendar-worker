@@ -114,25 +114,28 @@ When the user generates a link through the UI, the browser immediately requests 
     git clone https://github.com/jasonhaak/cloudflare-outlook-calendar-worker.git
     cd cloudflare-outlook-calendar-worker
     ```
+    
 2. **Install Dependencies**
     ```bash
     npm install
     ```
+    
 3. **Configure Environment Variables**
     - You can set environment variables in your `wrangler.toml` file or via the Cloudflare dashboard.
-4. **Deploy the Worker**
+
+4. **Deploy the Worker Locally**
     ```bash
-    npm run deploy
+    npm wrangler dev
     ```
 
 ## Testing
-This project uses **Vitest** for unit tests. Run the suite locally:
+This project uses `Vitest` for unit tests. Run the suite locally:
 
 ```bash
 npm test
 ```
 
-The test suite currently contains 95 tests. It covers the core ICS transformation logic, timestamp parsing and conversion, VTIMEZONE generation, URL validation, timezone validation, offset validation, mode validation, SSRF-related source URL checks, UI rendering and Worker request handling for the main routes and `/calendar` success/error paths.
+The test suite covers the core ICS transformation logic, timestamp parsing and conversion, VTIMEZONE generation, URL validation, timezone validation, offset validation, mode validation, SSRF-related source URL checks, UI rendering and Worker request handling for the main routes and `/calendar` success/error paths.
 
 ## Endpoints
 | Route | Description |
@@ -151,7 +154,7 @@ The test suite currently contains 95 tests. It covers the core ICS transformatio
 | `mode` | No | `force` | One of `force`, `shift` or `passthrough`. |
 | `offset` | No | Auto | UTC offset in minutes. Used only by `shift` mode. Valid range is `-840` to `840`. |
 
-### Example URLs
+### Examples
 Force TZID mode for Europe/Berlin:
 
 ```text
@@ -171,7 +174,9 @@ https://your-worker.workers.dev/calendar?url=https%3A%2F%2Foutlook.office365.com
 ```
 
 ## iFrame Usage
-Use `/embed` or `/?embed=1` when embedding the generator in another page.
+The UI is designed to be embedded in another page. It automatically switches to embedded mode when loaded inside an iframe. You can also force embedded mode with `/embed` or `/?embed=1`.
+
+Recommended iFrame embedding:
 
 ```html
 <iframe
@@ -180,7 +185,9 @@ Use `/embed` or `/?embed=1` when embedding the generator in another page.
 ></iframe>
 ```
 
-The embed view removes the footer, outer spacing, shadow and rounded outer frame. The UI response also sends:
+The embed view removes the footer, outer spacing, shadow and rounded outer frame.
+
+The UI response also sends:
 
 ```text
 Content-Security-Policy: frame-ancestors *
