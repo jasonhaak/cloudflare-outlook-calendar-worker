@@ -14,7 +14,7 @@ describe("renderUi", () => {
     expect(html).toContain('<body class="">');
     expect(html).toContain('<link rel="stylesheet" href="https://calendar.example.com/styles.css" />');
     expect(html).not.toContain("<style>");
-    expect(html).toContain("cloudflare-outlook-calendar-worker");
+    expect(html).toContain("outlook-calendar-worker");
     expect(html).toContain(">GitHub</a>");
   });
 
