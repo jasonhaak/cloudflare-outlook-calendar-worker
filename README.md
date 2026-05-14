@@ -138,8 +138,8 @@ The test suite currently contains 95 tests. It covers the core ICS transformatio
 | Route | Description |
 |---|---|
 | `GET /` | Full HTML configuration UI. |
-| `GET /?embed=1` | Iframe-friendly UI variant without footer or outer page chrome. |
-| `GET /embed` | Iframe-friendly UI route. |
+| `GET /?embed=1` | iFrame-friendly UI variant without footer or outer page chrome. |
+| `GET /embed` | iFrame-friendly UI route. |
 | `GET /calendar?url=...&tz=...&mode=...` | Fetches, validates, transforms and returns the corrected ICS feed. |
 | `GET /health` | JSON health check. |
 
