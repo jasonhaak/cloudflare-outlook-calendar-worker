@@ -121,7 +121,7 @@ When the user generates a link through the UI, the browser immediately requests 
     ```
     
 3. **Configure Environment Variables**
-    - You can set environment variables in your `wrangler.toml` file or via the Cloudflare dashboard.
+    - You can set environment variables in your `wrangler.toml` file.
 
 4. **Deploy the Worker Locally**
     ```bash
