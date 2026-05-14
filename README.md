@@ -35,6 +35,7 @@ You will learn how to deploy the worker to Cloudflare, open the built-in UI and 
 ### 1. Prepare the Codebase
 Cloudflare always requires a code source (repository or ZIP) to deploy a Worker. Choose one of the following:
 - **Git (recommended)**: Fork this repository into your own GitHub/GitLab account.
+  - **CI pipeline (optional)**: If you want to run the tests and checks in CI, set up a pipeline in your fork that runs the same checks as this repository and deploys to Cloudflare.
 - **ZIP (manual upload)**: Download the code as a ZIP file and prepare it for upload.
 
 ### 2. Add a Worker in Cloudflare
@@ -45,19 +46,20 @@ Cloudflare always requires a code source (repository or ZIP) to deploy a Worker.
 > **Note**: See the [Environment Variables](#environment-variables) section below for variable descriptions and an example configuration.
 
 There are multiple ways to provide environment variables for your Worker:
-- Set them directly in the Cloudflare Dashboard (**Worker -> Settings -> Variables & Secrets**). This keeps sensitive values out of your source code and version control.
-- You can define them in your `wrangler.toml` file (not recommended for secrets or sensitive data if your repository is public).
-- You can deliver them through your CI/CD pipeline or other deployment automation.
+- **Cloudflare Dashboard**: Set them directly in the Cloudflare Dashboard (**Worker -> Settings -> Variables & Secrets**). This keeps sensitive values out of your source code and version control.
+- **Wrangler**: You can define them in your `wrangler.toml` file (not recommended for secrets or sensitive data if your repository is public).
+- **CI pipeline**: You can deliver them through your CI/CD pipeline or other deployment automation.
 
-> **Important:** If you deploy using **GitHub/GitLab integration**, any variables set in the Cloudflare Dashboard as plain text or JSON will be **overwritten** during deployment.
+> **Important:** If you deploy using **Cloudflare Git integration**, any variables set in the Cloudflare Dashboard as plain text or JSON will be **overwritten** during deployment.
 > To prevent this:
 > - Option 1: Add `--keep-vars` to your deployment command in **Settings -> Build -> Deploy command** (e.g. `npx wrangler deploy --keep-vars`).
 > - Option 2: Set your variables as *secrets* in the Dashboard, which are always preserved.
 
 ### 4. Deploy
-- **Git**: Connect your forked repository directly to your GitHub/GitLab account in the Cloudflare Dashboard. Cloudflare will build and deploy automatically.
-- **ZIP**: Upload your prepared ZIP file using the Dashboard’s editor or deployment UI.
+- **Cloudflare Git integration (recommended)**: Connect your forked repository directly to your GitHub/GitLab account in the Cloudflare Dashboard. Cloudflare will build and deploy automatically. Additional information about the Git integration for Cloudflare Workers can be found in the [Cloudflare documentation](https://developers.cloudflare.com/workers/ci-cd/builds/).
+- **ZIP (manual upload)**: Upload your prepared ZIP file using the Dashboard’s editor or deployment UI.
 - **Wrangler**: Deploy from your local checkout with `npm run deploy`.
+- **CI pipeline**: If you want to have control over the CI checks and deployment, you can set up your own pipeline that runs the tests and deploys to Cloudflare. You can use the same CI configuration as this repository, which is available in `.github/workflows/ci.yml`. Make sure to update the deployment step with your own Cloudflare API credentials and Worker name. Additional information on setting up CI/CD pipelines for Cloudflare Workers can be found in the [Cloudflare documentation](https://developers.cloudflare.com/workers/ci-cd/external-cicd/).
 
 > **Important:** When using Cloudflare Git integration, go to **Settings -> Build -> Branch Control** in your Worker project. Make sure to **deactivate** (uncheck) the option for enabling builds for non-production branches. If this setting is active, any push to your `develop` (or other non-production) branch will trigger a deployment to your Worker, which may not be desired for production stability.
 
