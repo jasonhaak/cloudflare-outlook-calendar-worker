@@ -39,8 +39,8 @@ Cloudflare always requires a code source (repository or ZIP) to deploy a Worker.
 - **ZIP (manual upload)**: Download the code as a ZIP file and prepare it for upload.
 
 ### 2. Add a Worker in Cloudflare
-- Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
-- Navigate to **Workers & Pages -> Workers** and create a new Worker with the name `cloudflare-outlook-calendar-worker`.
+1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Navigate to **Workers & Pages -> Workers** and create a new Worker with the name `cloudflare-outlook-calendar-worker`.
 
 ### 3. Add Environment Variables
 > **Note**: See the [Environment Variables](#environment-variables) section below for variable descriptions and an example configuration.
