@@ -8,13 +8,13 @@ describe("renderUi", () => {
       defaultTz: "Europe/London",
     });
 
-    expect(html).toContain("<h1>Outlook iCal Timezone Fixer</h1>");
+    expect(html).toContain("<h1>Outlook iCal Timezone Proxy</h1>");
     expect(html).toContain("https://calendar.example.com");
     expect(html).toContain('<option value="Europe/London" selected>');
     expect(html).toContain('<body class="">');
     expect(html).toContain('<link rel="stylesheet" href="https://calendar.example.com/styles.css" />');
     expect(html).not.toContain("<style>");
-    expect(html).toContain("outlook-calendar-worker");
+    expect(html).toContain("outlook-ical-timezone-proxy-worker");
     expect(html).toContain(">GitHub</a>");
   });
 
