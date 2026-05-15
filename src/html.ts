@@ -179,7 +179,7 @@ export function renderUi(params: UiParams): string {
 </main>
 
 <footer>
-  outlook-calendar-worker
+  outlook-calendar-worker - 
   <a href="https://github.com/jasonhaak/outlook-calendar-worker"
      target="_blank" rel="noopener">GitHub</a>
 </footer>
