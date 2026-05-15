@@ -44,14 +44,14 @@ export function renderUi(params: UiParams): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Outlook iCal Timezone Fixer</title>
+  <title>Outlook iCal Timezone Proxy</title>
   <link rel="stylesheet" href="${esc(workerUrl)}/styles.css" />
 </head>
 <body class="${embedded ? "embedded" : ""}">
 <main class="shell">
 <section class="tool">
   <div class="heading">
-    <h1>Outlook iCal Timezone Fixer</h1>
+    <h1>Outlook iCal Timezone Proxy</h1>
     <p class="intro">
       Generate a corrected subscription URL for Outlook calendar feeds that
       appear with shifted times in calendar apps.
@@ -179,8 +179,8 @@ export function renderUi(params: UiParams): string {
 </main>
 
 <footer>
-  outlook-calendar-worker
-  <a href="https://github.com/jasonhaak/outlook-calendar-worker"
+  outlook-ical-timezone-proxy-worker - 
+  <a href="https://github.com/jasonhaak/outlook-ical-timezone-proxy-worker"
      target="_blank" rel="noopener">GitHub</a>
 </footer>
 

@@ -1,5 +1,5 @@
 {
-  "name": "outlook-calendar-worker",
+  "name": "outlook-ical-timezone-proxy-worker",
   "version": "1.0.0",
   "private": true,
   "description": "Cloudflare Worker that acts as an iCal proxy and timezone normalization service for Outlook calendar feeds",

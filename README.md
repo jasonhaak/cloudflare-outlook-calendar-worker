@@ -1,7 +1,7 @@
-# outlook-calendar-worker
-[![Release](https://img.shields.io/github/v/release/jasonhaak/outlook-calendar-worker)](https://github.com/jasonhaak/outlook-calendar-worker/releases/latest)
-[![CI](https://img.shields.io/github/actions/workflow/status/jasonhaak/outlook-calendar-worker/ci.yml?branch=main&logo=github)](https://github.com/jasonhaak/outlook-calendar-worker/actions/workflows/ci.yml)
-[![Coverage](https://codecov.io/github/jasonhaak/outlook-calendar-worker/graph/badge.svg)](https://codecov.io/github/jasonhaak/outlook-calendar-worker)
+# outlook-ical-timezone-proxy-worker
+[![Release](https://img.shields.io/github/v/release/jasonhaak/outlook-ical-timezone-proxy-worker)](https://github.com/jasonhaak/outlook-ical-timezone-proxy-worker/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/jasonhaak/outlook-ical-timezone-proxy-worker/ci.yml?branch=main&logo=github)](https://github.com/jasonhaak/outlook-ical-timezone-proxy-worker/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/github/jasonhaak/outlook-ical-timezone-proxy-worker/graph/badge.svg)](https://codecov.io/github/jasonhaak/outlook-ical-timezone-proxy-worker)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare)](https://workers.cloudflare.com/)
 
 A Cloudflare Worker that acts as an iCal proxy and timezone normalization service for Microsoft Outlook calendar feeds. It fetches an Outlook ICS subscription URL, rewrites problematic date-time values and returns a corrected ICS feed that can be subscribed to from calendar clients.
@@ -40,7 +40,7 @@ Cloudflare always requires a code source (repository or ZIP) to deploy a Worker.
 
 ### 2. Add a Worker in Cloudflare
 1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
-2. Navigate to **Workers & Pages -> Workers** and create a new Worker with the name `outlook-calendar-worker`.
+2. Navigate to **Workers & Pages -> Workers** and create a new Worker with the name `outlook-ical-timezone-proxy-worker`.
 
 ### 3. Add Environment Variables
 > **Note**: See the [Environment Variables](#environment-variables) section below for variable descriptions and an example configuration.
@@ -108,8 +108,8 @@ When the user generates a link through the UI, the browser immediately requests 
 ## Installation & Development
 1. **Clone the Repository**
     ```bash
-    git clone https://github.com/jasonhaak/outlook-calendar-worker.git
-    cd outlook-calendar-worker
+    git clone https://github.com/jasonhaak/outlook-ical-timezone-proxy-worker.git
+    cd outlook-ical-timezone-proxy-worker
     ```
 
 2. **Install Dependencies**
