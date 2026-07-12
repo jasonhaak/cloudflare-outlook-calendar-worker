@@ -591,6 +591,54 @@ describe("transformIcs — shift mode", () => {
     expect(result).toContain("DTEND:20240315T120000");
     expect(result).not.toContain("T110000Z");
   });
+
+  it("removes recognised Windows TZIDs without shifting their local time", () => {
+    const input = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "DTSTART;TZID=W. Europe Standard Time:20250715T131500",
+      "DTEND;TZID=Romance Standard Time:20250715T140000",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    const result = transformIcs(input, {
+      tzid: "Europe/Berlin",
+      offsetMinutes: 120,
+      mode: "shift",
+    });
+
+    expect(result).toContain("DTSTART:20250715T131500");
+    expect(result).toContain("DTEND:20250715T140000");
+    expect(result).not.toContain("W. Europe Standard Time");
+    expect(result).not.toContain("Romance Standard Time");
+  });
+});
+
+describe("transformIcs — Windows TZIDs", () => {
+  it("converts recognised Windows TZIDs to the requested IANA timezone in force mode", () => {
+    const input = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "DTSTART;TZID=W. Europe Standard Time:20250715T131500",
+      "DTEND;TZID=Romance Standard Time:20250715T140000",
+      "DUE;TZID=Pacific Standard Time:20250715T090000",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    const result = transformIcs(input, {
+      tzid: "Europe/Berlin",
+      offsetMinutes: null,
+      mode: "force",
+    });
+
+    expect(result).toContain("DTSTART;TZID=Europe/Berlin:20250715T131500");
+    expect(result).toContain("DTEND;TZID=Europe/Berlin:20250715T140000");
+    expect(result).toContain("DUE;TZID=Europe/Berlin:20250715T180000");
+  });
 });
 
 // ─── EXDATE multi-value transformation ───────────────────────────────────────

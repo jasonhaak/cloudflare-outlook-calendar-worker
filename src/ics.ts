@@ -40,22 +40,25 @@
  *   • Floating timestamps:     annotate with the target TZID without changing
  *                              the time value (we trust that the event creator
  *                              intended the given wall-clock time in that tz).
- *   • TZID timestamps:         left untouched (already correctly annotated).
+ *   • IANA TZID timestamps:    left untouched (already correctly annotated).
+ *   • Windows TZID timestamps: converted to the target IANA timezone.
  *   • A VTIMEZONE block for the target tzid is inserted into the calendar.
  *
  * shift       — Simple fixed-offset approach (no DST awareness).
  *   • UTC timestamps (Z):      add the manual offsetMinutes, strip the Z, emit
  *                              as floating time.
  *   • Floating timestamps:     left untouched.
- *   • TZID timestamps:         left untouched.
+ *   • IANA TZID timestamps:    left untouched.
+ *   • Windows TZID timestamps: emitted as floating local times.
  *   Useful when the Intl API is unavailable or when the user knows the exact
  *   fixed offset to apply.  Does not insert a VTIMEZONE block.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { generateVTimezone } from "./vtimezone.js";
+import { generateVTimezone, getOffsetMinutesAt } from "./vtimezone.js";
 import type { TransformMode } from "./validate.js";
+import { getIanaTimezoneForWindowsId } from "./windows-timezones.js";
 
 export interface TransformOptions {
   /** IANA timezone ID, e.g. "Europe/Berlin" */
@@ -322,6 +325,40 @@ export function shiftUtcByOffset(
   return `${y}${mo}${d}T${h}${mi}${s}`;
 }
 
+/**
+ * Convert a floating wall-clock timestamp from one IANA timezone to another.
+ * The source timestamp comes from a TZID property, so its value is local to
+ * `sourceTzid` rather than UTC.
+ */
+function convertLocalToTimezone(
+  localTimestamp: string,
+  sourceTzid: string,
+  targetTzid: string
+): string {
+  const year = Number(localTimestamp.slice(0, 4));
+  const month = Number(localTimestamp.slice(4, 6)) - 1;
+  const day = Number(localTimestamp.slice(6, 8));
+  const hour = Number(localTimestamp.slice(9, 11));
+  const minute = Number(localTimestamp.slice(11, 13));
+  const second = Number(localTimestamp.slice(13, 15));
+  const localAsUtc = Date.UTC(year, month, day, hour, minute, second);
+
+  let instant = localAsUtc;
+  for (let i = 0; i < 2; i++) {
+    instant = localAsUtc - getOffsetMinutesAt(new Date(instant), sourceTzid) * 60_000;
+  }
+
+  const date = new Date(instant);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const utcTimestamp = [
+    date.getUTCFullYear().toString().padStart(4, "0"),
+    pad(date.getUTCMonth() + 1),
+    pad(date.getUTCDate()),
+  ].join("") + `T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+
+  return convertUtcToLocal(utcTimestamp, targetTzid);
+}
+
 // ─── Properties whose timestamps should be transformed ───────────────────────
 
 /**
@@ -360,9 +397,14 @@ function transformDateProp(
   const valueParam = prop.params["VALUE"];
   if (typeof valueParam === "string" && valueParam.toUpperCase() === "DATE") return prop;
 
-  // If the property already carries a TZID parameter, leave it alone
-  // (the event already has explicit timezone info — we won't rebase it)
-  if (prop.params["TZID"] !== undefined) return prop;
+  const existingTzid = prop.params["TZID"];
+  const sourceTzid = existingTzid === undefined
+    ? undefined
+    : getIanaTimezoneForWindowsId(existingTzid);
+
+  // Existing IANA and unknown custom TZIDs already carry explicit timezone
+  // information, so they remain untouched.
+  if (existingTzid !== undefined && sourceTzid === undefined) return prop;
 
   // Handle comma-separated multi-values (EXDATE, RDATE)
   const rawValues = prop.value.split(",");
@@ -370,6 +412,27 @@ function transformDateProp(
 
   // DATE-only value in the bare property (no VALUE=DATE param but still a date)
   if (isDateOnly(singleValue)) return prop;
+
+  if (sourceTzid !== undefined) {
+    if (mode === "force" && isFloatingTimestamp(singleValue)) {
+      return {
+        ...prop,
+        params: { ...prop.params, TZID: tzid },
+        value: rawValues
+          .map((value) => isFloatingTimestamp(value)
+            ? convertLocalToTimezone(value, sourceTzid, tzid)
+            : value)
+          .join(","),
+      };
+    }
+
+    if (mode === "shift" && isFloatingTimestamp(singleValue)) {
+      const { TZID: _ignored, ...params } = prop.params;
+      return { ...prop, params };
+    }
+
+    return prop;
+  }
 
   const newValues = rawValues.map((v) => {
     if (mode === "force") {

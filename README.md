@@ -99,7 +99,8 @@ This Worker supports three modes:
 |---|---|---|
 | UTC timestamp | `DTSTART:20240615T100000Z` | Converted to local wall-clock time and emitted with `TZID`. |
 | Floating timestamp | `DTSTART:20240615T120000` | Time is preserved and emitted with `TZID`. |
-| Existing `TZID` timestamp | `DTSTART;TZID=America/New_York:20240615T120000` | Left unchanged. |
+| Existing IANA `TZID` timestamp | `DTSTART;TZID=America/New_York:20240615T120000` | Left unchanged. |
+| Windows `TZID` timestamp | `DTSTART;TZID=W. Europe Standard Time:20240615T120000` | Converted to the target IANA timezone. |
 | All-day date | `DTSTART;VALUE=DATE:20240615` | Left unchanged. |
 
 ### UI Validation
